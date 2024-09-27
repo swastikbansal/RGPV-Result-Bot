@@ -48,7 +48,7 @@ def open_result(roll_no):
     #Selecting Sem
     sem = driver.find_element(By.ID,'ctl00_ContentPlaceHolder1_drpSemester')
     drop = Select(sem)
-    drop.select_by_visible_text("3") # Change the sem here 
+    drop.select_by_visible_text("4") # Change the sem here 
     
     # Entering Captcha
     captcha_input=driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_TextBox1"]')
@@ -64,6 +64,10 @@ def open_result(roll_no):
 
     print('Button Clicked \n')
 
+    #2 - Invalid Captcha
+    #1 - Page dosen't respond for some reason
+    #0 - Result Opened
+    
     try:
         wait = WebDriverWait(driver, 5)
         wait.until(EC.alert_is_present())
@@ -99,20 +103,19 @@ if __name__ == "__main__":
     program = driver.find_element(By.XPATH,'//*[@id="radlstProgram_1"]')
     program.click()
 
-    file = open("results.csv",'a')
+    file = open("results.csv",'a',newline='')
+    file_data = [i for i in csv.reader(open("results.csv","r"))] # Extracting data for preventing duplicate entries
     csvwriter = csv.writer(file)
 
-    for i in range(1066,1082): # Range of Roll No
+    for i in range(1129,1158): # Range of Roll No
         roll_number = "0827AL22"+str(i)
         res = open_result(roll_number)
-        print(res)
         
         while res == 2:
             res = open_result(roll_number) 
-            print(res)
 
+        # retriving data if everything is fine
         while (res == 0):
-           
             try :
                 time.sleep(1)
                 try : 
@@ -155,17 +158,19 @@ if __name__ == "__main__":
                             subj = driver.find_element(By.XPATH,f'//*[@id="ctl00_ContentPlaceHolder1_pnlGrading"]/table/tbody/tr[3]/td/table[{i}]/tbody/tr/td[4]')
                             subj = subj.text
                             data.append(subj)
-                            # print(subj)                      
-                        
-                        print(data)
-
-                        csvwriter.writerow(data)
+                                                
+                        # Preventing duplicate entries
+                        if data not in file_data:
+                            print(data)
+                            file_data.append(data)  
+                            csvwriter.writerow(data)
+                            continue
 
                         reset = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_btnReset"]')
                         reset.click()
                 except:
                     res = open_result(roll_number)
-                    pass
+                    
             except:
                 wait = WebDriverWait(driver, 10)
                 wait.until(EC.alert_is_present())
