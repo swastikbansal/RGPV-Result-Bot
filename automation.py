@@ -19,7 +19,7 @@ import time
 # Hyperparameters
 selected_sem = "5"
 subjects = 4
-roll_no_range = range(1156,1157)
+roll_no_range = range(1079,1081)
 
 def get_captcha(driver, element, path):
     pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
