@@ -6,11 +6,20 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
 
 import csv
+from tqdm import tqdm
 
 from PIL import Image
 import pytesseract 
 
 import time
+
+# Bugs
+# 
+
+# Hyperparameters
+selected_sem = "5"
+subjects = 4
+roll_no_range = range(1156,1157)
 
 def get_captcha(driver, element, path):
     pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -48,7 +57,7 @@ def open_result(roll_no):
     #Selecting Sem
     sem = driver.find_element(By.ID,'ctl00_ContentPlaceHolder1_drpSemester')
     drop = Select(sem)
-    drop.select_by_visible_text("4") # Change the sem here 
+    drop.select_by_visible_text(selected_sem) # Change the sem here 
     
     # Entering Captcha
     captcha_input=driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_TextBox1"]')
@@ -62,7 +71,6 @@ def open_result(roll_no):
     result_but.click()
     # pyautogui.click(516,536)
 
-    print('Button Clicked \n')
 
     #2 - Invalid Captcha
     #1 - Page dosen't respond for some reason
@@ -89,7 +97,6 @@ def open_result(roll_no):
                 # time.sleep(3)
                 return 0
 
-
 #__main__
 if __name__ == "__main__":
     #Setting up driver
@@ -107,7 +114,7 @@ if __name__ == "__main__":
     file_data = [i for i in csv.reader(open("results.csv","r"))] # Extracting data for preventing duplicate entries
     csvwriter = csv.writer(file)
 
-    for i in range(1129,1158): # Range of Roll No
+    for i in tqdm(roll_no_range): # Range of Roll No
         roll_number = "0827AL22"+str(i)
         res = open_result(roll_number)
         
@@ -132,28 +139,23 @@ if __name__ == "__main__":
                         name = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_lblNameGrading"]')
                         name = name.text
                         data.append(name)
-                        # print(name)
                         
                         #Result
                         result = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_lblResultNewGrading"]')
                         result = result.text
                         data.append(result)
-                        # print(result)
                         
                         #SGPA
                         sgpa = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_lblSGPA"]')
                         sgpa = sgpa.text
                         data.append(sgpa)
-                        # print(sgpa)
                         
                         #CGPA
                         cgpa = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_lblcgpa"]')
                         cgpa = cgpa.text
                         data.append(cgpa)
-                        # print(cgpa)
-                        
-                        subjects = 5
-                        
+
+                        # Adding grade for n subject                        
                         for i in range(2,  subjects+2):
                             subj = driver.find_element(By.XPATH,f'//*[@id="ctl00_ContentPlaceHolder1_pnlGrading"]/table/tbody/tr[3]/td/table[{i}]/tbody/tr/td[4]')
                             subj = subj.text
@@ -177,7 +179,5 @@ if __name__ == "__main__":
                 driver.switch_to.alert.accept() 
                 res = open_result(roll_number) 
                 print(res)
-
-        print(roll_number)
 
     driver.close()
