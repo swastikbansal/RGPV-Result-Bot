@@ -4,52 +4,53 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
-
+from selenium.common.exceptions import TimeoutException
 import csv
 from tqdm import tqdm
-
 from PIL import Image
 import pytesseract 
-
 import time
+import re
 
 # Bugs
 # 
 
+# 89, 91 , 92 ,136,
+
 # Hyperparameters
-selected_sem = "5"
+selected_sem = "6"
 subjects = 4
-roll_no_range = range(1079,1081)
+roll_no_range = range(1156,1158)
 
 def get_captcha(driver, element, path):
-    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    try:
+        pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    except:
+        print("Tesseract OCR not found. Please install it and set the path correctly.")
+        return None
+    
     location = element.location_once_scrolled_into_view
-
     size = element.size
     
     driver.save_screenshot(path)
     image = Image.open(path)
 
-    left = location['x'] - 20
+    left = max(location['x'] - 20, 0)
     top = location['y']
     right = location['x'] + size['width'] + 20
     bottom = location['y'] + size['height']
 
-    image = image.crop((left, top, right, bottom))  # defines crop points
-    image.save(path, 'png')  # saves new cropped image
+    image = image.crop((left, top, right, bottom))
+    image.save(path, 'png')
 
-    captcha = pytesseract.image_to_string(image) 
-    captcha = captcha.replace(" ", "").strip()
-    print(captcha)
-    
-    time.sleep(2)
-
+    captcha = pytesseract.image_to_string(image)
+    # Normalize OCR noise: keep alphanumerics and fix common confusions
+    captcha = re.sub(r'[^A-Za-z0-9]', '', captcha).upper().replace('O', '0').replace('I', '1').strip()
     return captcha
 
-def open_result(roll_no):
-        
+def open_result(driver, roll_no):
     #Entering Roll No.
-    wait = WebDriverWait(driver, 5)
+    wait = WebDriverWait(driver, 10)
     wait.until(EC.presence_of_element_located((By.ID, 'ctl00_ContentPlaceHolder1_txtrollno')))
     roll_no_b = driver.find_element(By.ID, 'ctl00_ContentPlaceHolder1_txtrollno')
     roll_no_b.send_keys(roll_no)
@@ -57,44 +58,37 @@ def open_result(roll_no):
     #Selecting Sem
     sem = driver.find_element(By.ID,'ctl00_ContentPlaceHolder1_drpSemester')
     drop = Select(sem)
-    drop.select_by_visible_text(selected_sem) # Change the sem here 
+    drop.select_by_visible_text(selected_sem)
     
     # Entering Captcha
     captcha_input=driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_TextBox1"]')
     img = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_pnlCaptcha"]/table/tbody/tr[1]/td/div/img')
     cap = get_captcha(driver, img, "captcha.png")
     captcha_input.clear()
-    captcha_input.send_keys(cap.upper())
+    captcha_input.send_keys(cap)
 
     # Clicking on Result Button
     result_but = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_btnviewresult"]')
     result_but.click()
-    # pyautogui.click(516,536)
-
 
     #2 - Invalid Captcha
-    #1 - Page dosen't respond for some reason
+    #1 - Page doesn't respond for some reason
     #0 - Result Opened
-    
     try:
         wait = WebDriverWait(driver, 5)
         wait.until(EC.alert_is_present())
         driver.switch_to.alert.accept() 
         return 2
-
-    except:
-        try: 
-            # time.sleep(2)
+    except TimeoutException:
+        try:
             reset = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_btnReset"]')
             reset.click()
             return 1
-        
-        except :
+        except:
             trial = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_btnviewresult"]').is_displayed()
             if trial:
                 result_but = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_btnviewresult"]')
                 result_but.click()
-                # time.sleep(3)
                 return 0
 
 #__main__
@@ -104,27 +98,35 @@ if __name__ == "__main__":
     options = webdriver.EdgeOptions()
     options.add_argument('--headless') 
     options.add_argument('--enable-chrome-browser-cloud-management')
-    driver = webdriver.Edge(service=service, options=options)
+    # Suppress Chromium USB and verbose logs
+    options.add_experimental_option("excludeSwitches", ["enable-logging"])
+    options.add_argument("--log-level=3")
+    try:    
+        driver = webdriver.Edge(service=service, options=options)
+    except:
+        print("Edge WebDriver not found. Please install it and set the path correctly.")
+        exit(1)
     driver.get('http://result.rgpv.ac.in/result/ProgramSelect.aspx')
 
     program = driver.find_element(By.XPATH,'//*[@id="radlstProgram_1"]')
     program.click()
 
-    file = open("results.csv",'a',newline='')
-    file_data = [i for i in csv.reader(open("results.csv","r"))] # Extracting data for preventing duplicate entries
+    file = open("results.csv",'a',newline='', encoding='utf-8')
+    file_data = set(tuple(i) for i in csv.reader(open("results.csv","r", encoding='utf-8')))  # faster duplicate checks
     csvwriter = csv.writer(file)
 
-    for i in tqdm(roll_no_range): # Range of Roll No
-        roll_number = "0827AL22"+str(i)
-        res = open_result(roll_number)
+    for i in tqdm(roll_no_range):
+        roll_number = f"0827AL22{i}"
+        res = open_result(driver, roll_number)
         
         while res == 2:
-            res = open_result(roll_number) 
+            res = open_result(driver, roll_number) 
 
-        # retriving data if everything is fine
+        # Retrieving data if everything is fine
         while (res == 0):
             try :
                 time.sleep(1)
+                
                 try : 
                     ch_reset = reset = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_btnReset"]').is_displayed()
                     if ch_reset:
@@ -162,22 +164,21 @@ if __name__ == "__main__":
                             data.append(subj)
                                                 
                         # Preventing duplicate entries
-                        if data not in file_data:
+                        if tuple(data) not in file_data:
                             print(data)
-                            file_data.append(data)  
+                            file_data.add(tuple(data))
                             csvwriter.writerow(data)
                             continue
 
                         reset = driver.find_element(By.XPATH,'//*[@id="ctl00_ContentPlaceHolder1_btnReset"]')
                         reset.click()
                 except:
-                    res = open_result(roll_number)
+                    res = open_result(driver, roll_number)
                     
             except:
-                wait = WebDriverWait(driver, 10)
-                wait.until(EC.alert_is_present())
-                driver.switch_to.alert.accept() 
-                res = open_result(roll_number) 
+                alert = WebDriverWait(driver, 10).until(EC.alert_is_present())
+                alert.accept()
+                res = open_result(driver, roll_number) 
                 print(res)
 
-    driver.close()
+    driver.quit()

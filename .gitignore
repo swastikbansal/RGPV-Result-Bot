@@ -1,3 +1,5 @@
 captcha.png
+*.csv
+results.xlsx
 test.py
 automation_keras.py
