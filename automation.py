@@ -13,14 +13,14 @@ import time
 import re
 
 # Bugs
-# 
+# Random 0 being added at the end of roll no.
 
-# 89, 91 , 92 ,136,
+# 89, 91 , 92, 95 , 109 , 118, 136, 145, 149, 152
 
 # Hyperparameters
-selected_sem = "6"
-subjects = 4
-roll_no_range = range(1156,1158)
+selected_sem = "7"
+subjects = 3
+roll_no_range = range(1080,1158)
 
 def get_captcha(driver, element, path):
     try:
@@ -98,9 +98,11 @@ if __name__ == "__main__":
     options = webdriver.EdgeOptions()
     options.add_argument('--headless') 
     options.add_argument('--enable-chrome-browser-cloud-management')
+    
     # Suppress Chromium USB and verbose logs
     options.add_experimental_option("excludeSwitches", ["enable-logging"])
     options.add_argument("--log-level=3")
+    
     try:    
         driver = webdriver.Edge(service=service, options=options)
     except:
@@ -117,6 +119,10 @@ if __name__ == "__main__":
 
     for i in tqdm(roll_no_range):
         roll_number = f"0827AL22{i}"
+        
+        # if roll_number in ["0827AL22089", "0827AL22091", "0827AL22092", "0827AL22094", "0827AL22136"]:
+        #     continue
+        
         res = open_result(driver, roll_number)
         
         while res == 2:
